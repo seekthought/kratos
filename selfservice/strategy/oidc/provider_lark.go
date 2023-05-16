@@ -76,9 +76,17 @@ func (g *ProviderLark) Claims(ctx context.Context, exchange *oauth2.Token, query
 		UserID       string `json:"user_id"`
 		Mobile       string `json:"mobile"`
 	}
+
+	o, err := g.OAuth2(ctx)
+	if err != nil {
+		return nil, errors.WithStack(herodot.ErrInternalServerError.WithReasonf("%s", err))
+	}
+
 	var (
-		client = g.reg.HTTPClient(ctx, httpx.ResilientClientDisallowInternalIPs())
-		user   larkClaim
+		client = g.reg.HTTPClient(ctx,
+			httpx.ResilientClientDisallowInternalIPs(),
+			httpx.ResilientClientWithClient(o.Client(ctx, exchange)))
+		user larkClaim
 	)
 
 	req, err := retryablehttp.NewRequest("GET", larkUserEndpoint, nil)
@@ -86,7 +94,6 @@ func (g *ProviderLark) Claims(ctx context.Context, exchange *oauth2.Token, query
 		return nil, errors.WithStack(herodot.ErrInternalServerError.WithReasonf("%s", err))
 	}
 
-	exchange.SetAuthHeader(req.Request)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, errors.WithStack(herodot.ErrInternalServerError.WithReasonf("%s", err))
